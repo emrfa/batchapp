@@ -1,0 +1,306 @@
+<x-app-layout>
+    <x-slot name="header">
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+            {{ __('Laporan Pemakaian Bahan Baku') }}
+        </h2>
+    </x-slot>
+
+    <div class="py-8">
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6" x-data="{
+                reportData: null,
+                isLoading: true,
+                filters: {
+                    start_date: new Date().toISOString().slice(0, 10),
+                    end_date: new Date().toISOString().slice(0, 10),
+                    mixer_code: ''
+                },
+                appliedMixer: '',
+                autoRefreshPaused: false,
+                refreshInterval: null,
+
+                init() {
+                    this.fetchReport();
+                    this.startAutoRefresh();
+                },
+
+                startAutoRefresh() {
+                    this.refreshInterval = setInterval(() => {
+                        if (!this.autoRefreshPaused && !this.isLoading) {
+                            this.fetchReport(true); // Pass true to indicate background refresh
+                        }
+                    }, 30000); // 30 seconds
+                },
+
+                async fetchReport(isBackground = false) {
+                    if (!isBackground) this.isLoading = true;
+                    this.appliedMixer = this.filters.mixer_code;
+                    try {
+                        const params = new URLSearchParams({
+                            startDate: this.filters.start_date,
+                            endDate: this.filters.end_date,
+                            mixer: this.filters.mixer_code
+                        });
+                        const response = await fetch(`/api/reports/production?${params.toString()}`);
+                        const json = await response.json();
+                        this.reportData = json;
+                    } catch (error) {
+                        console.error('Error fetching report:', error);
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+
+                getMaterialQty(batch, materialCode, storageCode = null) {
+                    if (!batch.details) return 0;
+                    
+                    const item = batch.details.find(d => 
+                        d.materialCode === materialCode && 
+                        (!storageCode || d.storageCode === storageCode)
+                    );
+                    return item ? item.quantity : 0;
+                }
+            }">
+
+            {{-- FILTER --}}
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                <form @submit.prevent="fetchReport" class="flex flex-wrap gap-4 items-end">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">From</label>
+                        <input type="date" x-model="filters.start_date" class="border-gray-300 rounded-md text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">To</label>
+                        <input type="date" x-model="filters.end_date" class="border-gray-300 rounded-md text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Mixer</label>
+                        <select x-model="filters.mixer_code" class="border-gray-300 rounded-md text-sm w-40">
+                            <option value="">All Mixers</option>
+                            <template x-if="reportData && reportData.mixers">
+                                <template x-for="mixer in reportData.mixers" :key="mixer.mixerCode">
+                                    <option :value="mixer.mixerCode" x-text="mixer.mixerCode"></option>
+                                </template>
+                            </template>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm">Filter Data</button>
+                    <button type="button" onclick="window.print()" class="bg-gray-200 px-4 py-2 rounded-md text-sm ml-auto">Print</button>
+                </form>
+            </div>
+
+            {{-- SUMMARY --}}
+            {{-- SUMMARY --}}
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4" x-show="reportData">
+                <div class="bg-white p-4 rounded-lg border shadow-sm">
+                    <p class="text-xs text-gray-400 uppercase">Total Batches</p>
+                    <p class="text-2xl font-bold" x-text="reportData ? reportData.totalBatches : 0"></p>
+                </div>
+                <div class="bg-white p-4 rounded-lg border shadow-sm">
+                    <p class="text-xs text-gray-400 uppercase">Total Weight</p>
+                    <p class="text-2xl font-bold text-indigo-600"><span x-text="reportData ? Number(reportData.totalWeight).toLocaleString() : 0"></span> <span class="text-sm text-gray-400">kg</span></p>
+                </div>
+
+                <template x-if="reportData">
+                    <template x-for="item in reportData.materialSummary" :key="item.label">
+                        <div class="bg-white p-4 rounded-lg border shadow-sm" x-show="item.value > 0">
+                            <p class="text-xs text-gray-400 uppercase" x-text="item.label + ' Terpakai'"></p>
+                            <p class="text-xl font-bold">
+                                <span x-text="Number(item.value).toLocaleString()"></span> 
+                                <span class="text-sm text-gray-400" x-text="item.unit"></span>
+                            </p>
+                        </div>
+                    </template>
+                </template>
+            </div>
+
+            {{-- TABLE --}}
+            {{-- TABLE --}}
+           <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden" 
+                x-show="reportData"
+                x-on:mouseenter="autoRefreshPaused = true" 
+                x-on:mouseleave="autoRefreshPaused = false">
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 text-sm border-collapse">
+            <thead>
+
+                {{-- ========================================== --}}
+                {{--              HEADERS: MIXER FM5            --}}
+                {{-- ========================================== --}}
+                <template x-if="appliedMixer === 'Mixer FM5'">
+                    <tr class="bg-gray-100">
+                        <th rowspan="2" class="px-3 py-2 text-left font-semibold text-gray-600 border-r w-16 bg-gray-100">No</th>
+                        <th rowspan="2" class="px-3 py-2 text-left font-semibold text-gray-600 border-r bg-gray-100">Date</th>
+                        <th rowspan="2" class="px-3 py-2 text-left font-semibold text-gray-600 border-r bg-gray-100">Time</th>
+                        <th rowspan="2" class="px-3 py-2 text-left font-semibold text-gray-600 border-r bg-gray-100">Batch ID</th>
+                        <th rowspan="2" class="px-3 py-2 text-left font-semibold text-gray-600 border-r bg-gray-100">Mixer</th>
+
+                        <th colspan="2" class="px-3 py-2 text-center font-bold text-gray-700 border-r bg-gray-100">Semen (Kg)</th>
+                        {{-- Pasir beton (Galunggung) - Single Entity --}}
+                        <th rowspan="2" class="px-3 py-2 text-center font-bold text-gray-700 border-r bg-gray-100 align-middle">Pasir beton (Galunggung)</th>
+                        <th colspan="2" class="px-3 py-2 text-center font-bold text-gray-700 border-r bg-gray-100">Pigmen</th>
+                        <th rowspan="2" class="px-3 py-2 text-center font-bold text-gray-700 border-r bg-gray-100 align-middle">Air</th>
+                    </tr>
+                </template>
+                <template x-if="appliedMixer === 'Mixer FM5'">
+                    <tr class="bg-gray-100">
+                        {{-- Semen Sub-headers --}}
+                        <th class="px-2 py-1 text-center text-xs text-gray-500 border-r font-mono bg-gray-100">Abu</th>
+                        <th class="px-2 py-1 text-center text-xs text-gray-500 border-r font-mono bg-gray-100">Putih</th>
+                        
+                        {{-- Pigmen Sub-headers --}}
+                        <th class="px-2 py-1 text-center text-xs text-gray-500 border-r font-mono bg-gray-100">Warna</th>
+                        <th class="px-2 py-1 text-center text-xs text-gray-500 border-r font-mono bg-gray-100">Qty (Kg)</th>
+                    </tr>
+                </template>
+
+
+                {{-- ========================================== --}}
+                {{--           HEADERS: OTHER MIXERS            --}}
+                {{-- ========================================== --}}
+                <template x-if="appliedMixer !== 'Mixer FM5'">
+                    <tr class="bg-gray-100">
+                        <th rowspan="2" class="px-3 py-2 text-left font-semibold text-gray-600 border-r w-16 bg-gray-100">No</th>
+                        <th rowspan="2" class="px-3 py-2 text-left font-semibold text-gray-600 border-r bg-gray-100">Date</th>
+                        <th rowspan="2" class="px-3 py-2 text-left font-semibold text-gray-600 border-r bg-gray-100">Time</th>
+                        <th rowspan="2" class="px-3 py-2 text-left font-semibold text-gray-600 border-r bg-gray-100">Batch ID</th>
+                        <th rowspan="2" class="px-3 py-2 text-left font-semibold text-gray-600 border-r bg-gray-100">Mixer</th>
+
+                        <th colspan="2" class="px-3 py-2 text-center font-bold text-gray-700 border-r bg-gray-100">Semen (Kg)</th>
+                        <th colspan="1" class="px-3 py-2 text-center font-bold text-gray-700 border-r bg-gray-100">Semen HC (Kg)</th>
+                        <th colspan="3" class="px-3 py-2 text-center font-bold text-gray-700 border-r bg-gray-100">Pasir (Pulsa)</th>
+                        <th rowspan="2" class="px-3 py-2 text-center font-bold text-gray-700 border-r bg-gray-100 align-middle">Air</th>
+
+                        {{-- Machine Column for CM4 --}}
+                        <template x-if="appliedMixer === 'Mixer CM4'">
+                            <th rowspan="2" class="px-3 py-2 text-left font-semibold text-gray-600 border-r bg-gray-100">Machine</th>
+                        </template>
+                    </tr>
+                </template>
+                <template x-if="appliedMixer !== 'Mixer FM5'">
+                    <tr class="bg-gray-100">
+                        <th class="px-2 py-1 text-center text-xs text-gray-500 border-r font-mono bg-gray-100">Silo 1</th>
+                        <th class="px-2 py-1 text-center text-xs text-gray-500 border-r font-mono bg-gray-100">Silo 3</th>
+                        <th class="px-2 py-1 text-center text-xs text-gray-500 border-r font-mono bg-gray-100">Silo 2</th>
+                        <th class="px-2 py-1 text-center text-xs text-gray-500 border-r font-mono bg-gray-100">Ciloseh / Kuarsa</th>
+                        <th class="px-2 py-1 text-center text-xs text-gray-500 border-r font-mono bg-gray-100">Giling 5 / Giling 6</th>
+                        <th class="px-2 py-1 text-center text-xs text-gray-500 border-r font-mono bg-gray-100">Screening</th>
+                    </tr>
+                </template>
+
+            </thead>
+
+            {{-- ========================================== --}}
+            {{--             BODY: MIXER FM5                --}}
+            {{-- ========================================== --}}
+            <template x-if="reportData && appliedMixer === 'Mixer FM5'">
+                <tbody class="divide-y divide-gray-200 bg-white">
+                    <template x-for="(batch, index) in reportData.batches" :key="batch.idBatch">
+                        <tr class="hover:bg-gray-50">
+                            {{-- Common Columns --}}
+                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap border-r text-center" x-text="index + 1"></td>
+                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap border-r" x-text="new Date(batch.batchTime).toLocaleDateString('en-CA')"></td>
+                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap border-r" x-text="new Date(batch.batchTime).toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit', second: '2-digit'})"></td>
+                            <td class="px-3 py-2 font-mono text-gray-600 border-r" x-text="'#' + batch.idBatch"></td>
+                            <td class="px-3 py-2 text-gray-600 border-r" x-text="batch.mixerCode"></td>
+
+                            {{-- FM5 Specific Columns --}}
+                            {{-- Semen (Kg): Abu (Placeholder) --}}
+                            <td class="px-3 py-2 text-right border-r text-gray-700">-</td>
+                            {{-- Semen (Kg): Putih (Placeholder) --}}
+                            <td class="px-3 py-2 text-right border-r text-gray-700">-</td>
+
+                            {{-- Pasir beton (Galunggung) (Placeholder) --}}
+                            <td class="px-3 py-2 text-right border-r text-gray-700">-</td>
+
+                            {{-- Pigmen: Warna (Placeholder) --}}
+                            <td class="px-3 py-2 text-right border-r text-gray-700">-</td>
+                            {{-- Pigmen: Qty (Placeholder) --}}
+                            <td class="px-3 py-2 text-right border-r text-gray-700">-</td>
+
+                            {{-- Air (Mapped) --}}
+                            <td class="px-3 py-2 text-right border-r text-gray-700"
+                                x-text="getMaterialQty(batch, 'Air') > 0 ? Number(getMaterialQty(batch, 'Air')).toLocaleString() : '-'">
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </template>
+
+            {{-- ========================================== --}}
+            {{--           BODY: OTHER MIXERS               --}}
+            {{-- ========================================== --}}
+            <template x-if="reportData && appliedMixer !== 'Mixer FM5'">
+                <tbody class="divide-y divide-gray-200 bg-white">
+                    <template x-for="(batch, index) in reportData.batches" :key="batch.idBatch">
+                        <tr class="hover:bg-gray-50">
+                            {{-- Common Columns --}}
+                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap border-r text-center" x-text="index + 1"></td>
+                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap border-r" x-text="new Date(batch.batchTime).toLocaleDateString('en-CA')"></td>
+                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap border-r" x-text="new Date(batch.batchTime).toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit', second: '2-digit'})"></td>
+                            <td class="px-3 py-2 font-mono text-gray-600 border-r" x-text="'#' + batch.idBatch"></td>
+                            <td class="px-3 py-2 text-gray-600 border-r" x-text="batch.mixerCode"></td>
+
+                            {{-- Original Columns --}}
+                            {{-- Semen (Kg): Silo 1 --}}
+                            <td class="px-3 py-2 text-right border-r text-gray-700"
+                                x-text="getMaterialQty(batch, 'Semen (Kg)', 'Silo 1') > 0 ? Number(getMaterialQty(batch, 'Semen (Kg)', 'Silo 1')).toLocaleString() : '-'">
+                            </td>
+                            {{-- Semen (Kg): Silo 3 --}}
+                            <td class="px-3 py-2 text-right border-r text-gray-700"
+                                x-text="getMaterialQty(batch, 'Semen (Kg)', 'Silo 3') > 0 ? Number(getMaterialQty(batch, 'Semen (Kg)', 'Silo 3')).toLocaleString() : '-'">
+                            </td>
+
+                            {{-- Semen HC (Kg): Silo 2 --}}
+                            <td class="px-3 py-2 text-right border-r text-gray-700"
+                                x-text="getMaterialQty(batch, 'Semen HC (Kg)', 'Silo 2') > 0 ? Number(getMaterialQty(batch, 'Semen HC (Kg)', 'Silo 2')).toLocaleString() : '-'">
+                            </td>
+
+                            {{-- Pasir (Pulsa): Ciloseh / Kuarsa --}}
+                            <td class="px-3 py-2 text-right border-r text-gray-700"
+                                x-text="getMaterialQty(batch, 'Pasir (Pulsa)', 'Ciloseh / Kuarsa') > 0 ? Number(getMaterialQty(batch, 'Pasir (Pulsa)', 'Ciloseh / Kuarsa')).toLocaleString() : '-'">
+                            </td>
+                            {{-- Pasir (Pulsa): Giling 5 / Giling 6 --}}
+                            <td class="px-3 py-2 text-right border-r text-gray-700"
+                                x-text="getMaterialQty(batch, 'Pasir (Pulsa)', 'Giling 5 / Giling 6') > 0 ? Number(getMaterialQty(batch, 'Pasir (Pulsa)', 'Giling 5 / Giling 6')).toLocaleString() : '-'">
+                            </td>
+                            {{-- Pasir (Pulsa): Screening --}}
+                            <td class="px-3 py-2 text-right border-r text-gray-700"
+                                x-text="getMaterialQty(batch, 'Pasir (Pulsa)', 'Screening') > 0 ? Number(getMaterialQty(batch, 'Pasir (Pulsa)', 'Screening')).toLocaleString() : '-'">
+                            </td>
+
+                            {{-- Air --}}
+                            <td class="px-3 py-2 text-right border-r text-gray-700"
+                                x-text="getMaterialQty(batch, 'Air') > 0 ? Number(getMaterialQty(batch, 'Air')).toLocaleString() : '-'">
+                            </td>
+
+                            {{-- Machine Column for CM4 --}}
+                            <template x-if="appliedMixer === 'Mixer CM4'">
+                                <td class="px-3 py-2 text-gray-600 whitespace-nowrap border-r">-</td>
+                            </template>
+                        </tr>
+                    </template>
+                </tbody>
+            </template>
+
+            {{-- No Data Row --}}
+            <template x-if="!reportData || reportData.batches.length === 0">
+                <tbody>
+                    <tr>
+                        <td colspan="100%" class="px-4 py-8 text-center text-gray-500">
+                            No production records found.
+                        </td>
+                    </tr>
+                </tbody>
+            </template>
+
+        </table>
+    </div>
+</div>
+
+
+
+
+        </div>
+    </div>
+</x-app-layout>
