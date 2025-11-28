@@ -29,7 +29,9 @@ class ReportController extends Controller
         $mixer = $request->query('mixer');
         $startDate = $request->query('startDate');
         $endDate = $request->query('endDate');
-        
+        $pageNumber = $request->query('PageNumber', 1);
+        $pageSize = $request->query('PageSize', 10);
+
         // Map Mixer Names to Codes
         $mixerMap = [
             'Mixer CM3' => 'cm3',
@@ -44,9 +46,9 @@ class ReportController extends Controller
             $mixer = $mixerMap[$mixer];
         }
 
-        \Illuminate\Support\Facades\Log::info('Report API Request', ['mixer' => $mixer, 'start' => $startDate, 'end' => $endDate]);
+        \Illuminate\Support\Facades\Log::info('Report API Request', ['mixer' => $mixer, 'start' => $startDate, 'end' => $endDate, 'PageNumber' => $pageNumber, 'PageSize' => $pageSize]);
 
-        $reportData = $this->apiService->getReportData($mixer, $startDate, $endDate, 1, 100);
+        $reportData = $this->apiService->getReportData($mixer, $startDate, $endDate, $pageNumber, $pageSize);
 
         \Illuminate\Support\Facades\Log::info('Report API Response', ['data_count' => isset($reportData['data']) ? 'Yes' : 'No']);
 
@@ -65,6 +67,8 @@ class ReportController extends Controller
         $airTotal = $batches->sum(fn($row) => ($row['water'] ?? 0));
 
         return response()->json([
+            'PageNumber' => (int)$pageNumber,
+            'PageSize' => (int)$pageSize,
             'totalBatches' => $data['totalBatches'] ?? 0,
             'totalWeight' => $data['totalWeight'] ?? 0,
             'materialSummary' => $mixer === 'fm5' ? [

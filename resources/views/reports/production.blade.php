@@ -12,7 +12,15 @@
                 filters: {
                     start_date: new Date().toISOString().slice(0, 10),
                     end_date: new Date().toISOString().slice(0, 10),
-                    mixer_code: ''
+                    mixer_code: '',
+                    PageNumber: 1,
+                    PageSize: 20
+                },
+                pagination: {
+                    PageNumber: 1,
+                    PageSize: 20,
+                    totalBatches: 0,
+                    totalPages: 0
                 },
                 appliedMixer: '',
                 autoRefreshPaused: false,
@@ -38,11 +46,19 @@
                         const params = new URLSearchParams({
                             startDate: this.filters.start_date,
                             endDate: this.filters.end_date,
-                            mixer: this.filters.mixer_code
+                            mixer: this.filters.mixer_code,
+                            PageNumber: this.filters.PageNumber,
+                            PageSize: this.filters.PageSize
                         });
                         const response = await fetch(`/api/reports/production?${params.toString()}`);
                         const json = await response.json();
                         this.reportData = json;
+                        
+                        // Update pagination info
+                        this.pagination.PageNumber = json.PageNumber || 1;
+                        this.pagination.PageSize = json.PageSize || 20;
+                        this.pagination.totalBatches = json.totalBatches || 0;
+                        this.pagination.totalPages = Math.ceil(this.pagination.totalBatches / this.pagination.PageSize);
                     } catch (error) {
                         console.error('Error fetching report:', error);
                     } finally {
@@ -63,7 +79,7 @@
 
             {{-- FILTER --}}
             <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                <form @submit.prevent="fetchReport" class="flex flex-wrap gap-4 items-end">
+                <form @submit.prevent="filters.PageNumber = 1; fetchReport()" class="flex flex-wrap gap-4 items-end">
                     <div>
                         <label class="block text-xs font-bold text-gray-500 uppercase mb-1">From</label>
                         <input type="date" x-model="filters.start_date" class="border-gray-300 rounded-md text-sm">
@@ -198,7 +214,7 @@
                     <template x-for="(batch, index) in reportData.batches" :key="batch.idBatch">
                         <tr class="hover:bg-gray-50">
                             {{-- Common Columns --}}
-                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap border-r text-center" x-text="index + 1"></td>
+                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap border-r text-center" x-text="(pagination.PageNumber - 1) * pagination.PageSize + index + 1"></td>
                             <td class="px-3 py-2 text-gray-600 whitespace-nowrap border-r" x-text="new Date(batch.batchTime).toLocaleDateString('en-CA')"></td>
                             <td class="px-3 py-2 text-gray-600 whitespace-nowrap border-r" x-text="new Date(batch.batchTime).toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit', second: '2-digit'})"></td>
                             <td class="px-3 py-2 font-mono text-gray-600 border-r" x-text="'#' + batch.idBatch"></td>
@@ -235,7 +251,7 @@
                     <template x-for="(batch, index) in reportData.batches" :key="batch.idBatch">
                         <tr class="hover:bg-gray-50">
                             {{-- Common Columns --}}
-                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap border-r text-center" x-text="index + 1"></td>
+                            <td class="px-3 py-2 text-gray-600 whitespace-nowrap border-r text-center" x-text="(pagination.PageNumber - 1) * pagination.PageSize + index + 1"></td>
                             <td class="px-3 py-2 text-gray-600 whitespace-nowrap border-r" x-text="new Date(batch.batchTime).toLocaleDateString('en-CA')"></td>
                             <td class="px-3 py-2 text-gray-600 whitespace-nowrap border-r" x-text="new Date(batch.batchTime).toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit', second: '2-digit'})"></td>
                             <td class="px-3 py-2 font-mono text-gray-600 border-r" x-text="'#' + batch.idBatch"></td>
@@ -295,6 +311,54 @@
             </template>
 
         </table>
+    </div>
+    
+    {{-- PAGINATION CONTROLS --}}
+    <div class="bg-gray-50 px-4 py-3 border-t border-gray-200 flex items-center justify-between sm:px-6" x-show="reportData && pagination.totalBatches > 0">
+        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+            <div>
+                <p class="text-sm text-gray-700">
+                    Showing
+                    <span class="font-medium" x-text="(pagination.PageNumber - 1) * pagination.PageSize + 1"></span>
+                    to
+                    <span class="font-medium" x-text="Math.min(pagination.PageNumber * pagination.PageSize, pagination.totalBatches)"></span>
+                    of
+                    <span class="font-medium" x-text="pagination.totalBatches"></span>
+                    results
+                </p>
+            </div>
+            <div>
+                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                    <button 
+                        @click="if(filters.PageNumber > 1) { filters.PageNumber--; fetchReport(); }" 
+                        :disabled="filters.PageNumber === 1"
+                        :class="{'opacity-50 cursor-not-allowed': filters.PageNumber === 1}"
+                        class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                        <span class="sr-only">Previous</span>
+                        <!-- Heroicon name: solid/chevron-left -->
+                        <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                    
+                    <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                        Page <span x-text="pagination.PageNumber" class="mx-1"></span> of <span x-text="pagination.totalPages" class="mx-1"></span>
+                    </span>
+
+                    <button 
+                        @click="if(filters.PageNumber < pagination.totalPages) { filters.PageNumber++; fetchReport(); }" 
+                        :disabled="filters.PageNumber >= pagination.totalPages"
+                        :class="{'opacity-50 cursor-not-allowed': filters.PageNumber >= pagination.totalPages}"
+                        class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                        <span class="sr-only">Next</span>
+                        <!-- Heroicon name: solid/chevron-right -->
+                        <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </nav>
+            </div>
+        </div>
     </div>
 </div>
 
