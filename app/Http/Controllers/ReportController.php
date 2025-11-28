@@ -69,8 +69,8 @@ class ReportController extends Controller
             'totalWeight' => $data['totalWeight'] ?? 0,
             'materialSummary' => $mixer === 'fm5' ? [
                 ['label' => 'Semen', 'value' => 0, 'unit' => 'kg'], // Placeholder for FM5
-                ['label' => 'Pasir beton', 'value' => 0, 'unit' => 'kg'], // Placeholder for FM5
-                ['label' => 'Pigmen', 'value' => 0, 'unit' => 'kg'], // Placeholder for FM5
+                ['label' => 'Pasir beton', 'value' => 0, 'unit' => 'kg'], 
+                ['label' => 'Pigmen', 'value' => 0, 'unit' => 'kg'], 
                 ['label' => 'Air', 'value' => $airTotal, 'unit' => 'Liter'],
             ] : [
                 ['label' => 'Semen', 'value' => $semenTotal, 'unit' => 'kg'],
