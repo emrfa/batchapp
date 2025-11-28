@@ -88,7 +88,15 @@ class DashboardController extends Controller
         foreach ($materialConsumptions as $item) {
             $labels[] = $item['name'];
             $data[] = $item['total'];
-            $units[] = 'kg';
+            
+            $nameLower = strtolower($item['name']);
+            if (str_contains($nameLower, 'pasir') ||  str_contains($nameLower, 'screening')) {
+                $units[] = 'pulsa';
+            } elseif (str_contains($nameLower, 'air')) {
+                $units[] = 'Liter';
+            } else {
+                $units[] = 'kg';
+            }
         }
 
         return [
