@@ -144,3 +144,4 @@ Route::get('/logs', function () {
 
 // Production Report
 Route::get('/reports/production', [ReportController::class, 'productionData']);
+Route::get('/reports/production/export', [ReportController::class, 'exportExcel']);

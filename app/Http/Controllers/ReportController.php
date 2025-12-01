@@ -9,6 +9,8 @@ use App\Models\Material;
 use App\Models\BatchDetail;
 use App\Models\Storage;
 use Carbon\Carbon;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\ProductionReportExport;
 
 class ReportController extends Controller
 {
@@ -66,15 +68,22 @@ class ReportController extends Controller
         $pasirTotal = $batches->sum(fn($row) => ($row['aggregat2'] ?? 0) + ($row['aggregat3'] ?? 0) + ($row['aggregat4'] ?? 0));
         $airTotal = $batches->sum(fn($row) => ($row['water'] ?? 0));
 
+        // FM5-specific totals
+        $fm5SemenAbu = $batches->sum(fn($row) => ($row['silo1'] ?? 0));
+        $fm5SemenPutih = $batches->sum(fn($row) => ($row['cementPutih'] ?? 0));
+        $fm5SemenTotal = $fm5SemenAbu + $fm5SemenPutih;
+        $fm5PasirGalunggung = $batches->sum(fn($row) => ($row['aggregat5'] ?? 0));
+        $fm5PigmenQty = $batches->sum(fn($row) => ($row['pigmenQty'] ?? 0));
+
         return response()->json([
             'PageNumber' => (int)$pageNumber,
             'PageSize' => (int)$pageSize,
             'totalBatches' => $data['totalBatches'] ?? 0,
             'totalWeight' => $data['totalWeight'] ?? 0,
             'materialSummary' => $mixer === 'fm5' ? [
-                ['label' => 'Semen', 'value' => 0, 'unit' => 'kg'], // Placeholder for FM5
-                ['label' => 'Pasir beton', 'value' => 0, 'unit' => 'kg'], 
-                ['label' => 'Pigmen', 'value' => 0, 'unit' => 'kg'], 
+                ['label' => 'Semen', 'value' => $fm5SemenTotal, 'unit' => 'kg'],
+                ['label' => 'Pasir beton', 'value' => $fm5PasirGalunggung, 'unit' => 'pulsa'], 
+                ['label' => 'Pigmen', 'value' => $fm5PigmenQty, 'unit' => 'kg'], 
                 ['label' => 'Air', 'value' => $airTotal, 'unit' => 'Liter'],
             ] : [
                 ['label' => 'Semen', 'value' => $semenTotal, 'unit' => 'kg'],
@@ -152,6 +161,32 @@ class ReportController extends Controller
             $details[] = ['materialCode' => 'Air', 'storageCode' => null, 'quantity' => $row['water']];
         }
 
+        // FM5-specific mappings
+        // Abu -> silo1 (FM5 Semen Abu)
+        if (isset($row['silo1']) && $row['silo1'] > 0) {
+            $details[] = ['materialCode' => 'Semen FM5 Abu', 'storageCode' => 'Abu', 'quantity' => $row['silo1']];
+        }
+        
+        // Putih -> cementPutih (FM5 Semen Putih)
+        if (isset($row['cementPutih']) && $row['cementPutih'] > 0) {
+            $details[] = ['materialCode' => 'Semen FM5 Putih', 'storageCode' => 'Putih', 'quantity' => $row['cementPutih']];
+        }
+        
+        // Gallungung -> aggregat5 (FM5 Pasir beton)
+        if (isset($row['aggregat5']) && $row['aggregat5'] > 0) {
+            $details[] = ['materialCode' => 'Pasir FM5', 'storageCode' => 'Galunggung', 'quantity' => $row['aggregat5']];
+        }
+        
+        // Warna -> pigmenColor (FM5 Pigmen Color)
+        if (isset($row['pigmenColor']) && !empty($row['pigmenColor'])) {
+            $details[] = ['materialCode' => 'Pigmen Warna', 'storageCode' => null, 'quantity' => $row['pigmenColor']];
+        }
+        
+        // Qty -> pigmenQty (FM5 Pigmen Quantity)
+        if (isset($row['pigmenQty']) && $row['pigmenQty'] > 0) {
+            $details[] = ['materialCode' => 'Pigmen Qty', 'storageCode' => null, 'quantity' => $row['pigmenQty']];
+        }
+
         return $details;
     }
 
@@ -197,5 +232,75 @@ class ReportController extends Controller
                 ]
             ]
         ];
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $mixer = $request->query('mixer');
+        $startDate = $request->query('startDate');
+        $endDate = $request->query('endDate');
+
+        // Map Mixer Names to Codes
+        $mixerMap = [
+            'Mixer CM3' => 'cm3',
+            'Mixer CM4' => 'cm4',
+            'Mixer FM5' => 'fm5',
+        ];
+
+        $mixerDisplay = $mixer;
+        
+        // Handle "All Mixers" or empty string
+        if (empty($mixer) || $mixer === 'All Mixers') {
+            $mixerCode = null;
+            $mixerDisplay = 'All_Mixers';
+        } elseif (isset($mixerMap[$mixer])) {
+            $mixerCode = $mixerMap[$mixer];
+        } else {
+            $mixerCode = $mixer;
+        }
+
+        // First, check total count to prevent memory issues
+        $countData = $this->apiService->getReportData($mixerCode, $startDate, $endDate, 1, 1);
+        $totalRecords = $countData['data']['totalBatches'] ?? 0;
+
+        // Safety limit to prevent memory exhaustion
+        if ($totalRecords > 1000) {
+            return response()->json([
+                'error' => 'Too many records to export',
+                'message' => "Found {$totalRecords} records. Please narrow your date range or filter by a specific mixer. Maximum allowed: 1000 records."
+            ], 400);
+        }
+
+        // Fetch ALL data (up to 1000 records)
+        $reportData = $this->apiService->getReportData($mixerCode, $startDate, $endDate, 1, 1000);
+
+        if (!$reportData || !isset($reportData['data'])) {
+            return response()->json(['error' => 'Failed to fetch report data'], 500);
+        }
+
+        $data = $reportData['data'];
+        
+        // Map batches using existing method
+        $exportData = [
+            'batches' => $this->mapBatches($data['reportTables'] ?? [])
+        ];
+
+        // Generate filename
+        $filename = 'Production_Report_' . 
+                    str_replace(' ', '_', $mixerDisplay) . '_' . 
+                    $startDate . '_to_' . $endDate . '.xlsx';
+
+        try {
+            return Excel::download(
+                new ProductionReportExport($exportData, $mixer, $startDate, $endDate),
+                $filename
+            );
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Excel Export Error: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Export failed',
+                'message' => 'An error occurred while generating the Excel file. Please try a smaller date range.'
+            ], 500);
+        }
     }
 }

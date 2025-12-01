@@ -101,7 +101,32 @@
                     </div>
 
                     <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm">Filter Data</button>
-                    <button type="button" onclick="window.print()" class="bg-gray-200 px-4 py-2 rounded-md text-sm ml-auto">Print</button>
+                    <button type="button" 
+                            @click="async () => {
+                                const url = `/api/reports/production/export?mixer=${filters.mixer_code}&startDate=${filters.start_date}&endDate=${filters.end_date}`;
+                                try {
+                                    const response = await fetch(url);
+                                    if (!response.ok) {
+                                        const error = await response.json();
+                                        alert(error.message || 'Export failed. Please try a smaller date range.');
+                                        return;
+                                    }
+                                    const blob = await response.blob();
+                                    const downloadUrl = window.URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = downloadUrl;
+                                    a.download = `Production_Report_${filters.start_date}_to_${filters.end_date}.xlsx`;
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    window.URL.revokeObjectURL(downloadUrl);
+                                    a.remove();
+                                } catch (err) {
+                                    alert('Export failed. Please try again.');
+                                }
+                            }"
+                            class="bg-green-600 text-white px-4 py-2 rounded-md text-sm hover:bg-green-700 ml-auto">
+                        Export to Excel
+                    </button>
                 </form>
             </div>
 
@@ -221,18 +246,28 @@
                             <td class="px-3 py-2 text-gray-600 border-r" x-text="batch.mixerCode"></td>
 
                             {{-- FM5 Specific Columns --}}
-                            {{-- Semen (Kg): Abu (Placeholder) --}}
-                            <td class="px-3 py-2 text-right border-r text-gray-700">-</td>
-                            {{-- Semen (Kg): Putih (Placeholder) --}}
-                            <td class="px-3 py-2 text-right border-r text-gray-700">-</td>
+                            {{-- Semen (Kg): Abu --}}
+                            <td class="px-3 py-2 text-right border-r text-gray-700"
+                                x-text="getMaterialQty(batch, 'Semen FM5 Abu', 'Abu') > 0 ? Number(getMaterialQty(batch, 'Semen FM5 Abu', 'Abu')).toLocaleString() : '-'">
+                            </td>
+                            {{-- Semen (Kg): Putih --}}
+                            <td class="px-3 py-2 text-right border-r text-gray-700"
+                                x-text="getMaterialQty(batch, 'Semen FM5 Putih', 'Putih') > 0 ? Number(getMaterialQty(batch, 'Semen FM5 Putih', 'Putih')).toLocaleString() : '-'">
+                            </td>
 
-                            {{-- Pasir beton (Galunggung) (Placeholder) --}}
-                            <td class="px-3 py-2 text-right border-r text-gray-700">-</td>
+                            {{-- Pasir beton (Galunggung) --}}
+                            <td class="px-3 py-2 text-right border-r text-gray-700"
+                                x-text="getMaterialQty(batch, 'Pasir FM5', 'Galunggung') > 0 ? Number(getMaterialQty(batch, 'Pasir FM5', 'Galunggung')).toLocaleString() : '-'">
+                            </td>
 
-                            {{-- Pigmen: Warna (Placeholder) --}}
-                            <td class="px-3 py-2 text-right border-r text-gray-700">-</td>
-                            {{-- Pigmen: Qty (Placeholder) --}}
-                            <td class="px-3 py-2 text-right border-r text-gray-700">-</td>
+                            {{-- Pigmen: Warna --}}
+                            <td class="px-3 py-2 text-right border-r text-gray-700"
+                                x-text="getMaterialQty(batch, 'Pigmen Warna') || '-'">
+                            </td>
+                            {{-- Pigmen: Qty --}}
+                            <td class="px-3 py-2 text-right border-r text-gray-700"
+                                x-text="getMaterialQty(batch, 'Pigmen Qty') > 0 ? Number(getMaterialQty(batch, 'Pigmen Qty')).toLocaleString() : '-'">
+                            </td>
 
                             {{-- Air (Mapped) --}}
                             <td class="px-3 py-2 text-right border-r text-gray-700"
