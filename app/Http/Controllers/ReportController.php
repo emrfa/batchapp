@@ -297,6 +297,8 @@ class ReportController extends Controller
             );
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::error('Excel Export Error: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Error in file: ' . $e->getFile() . ' on line ' . $e->getLine());
+            \Illuminate\Support\Facades\Log::error('Stack trace: ' . $e->getTraceAsString());
             return response()->json([
                 'error' => 'Export failed',
                 'message' => 'An error occurred while generating the Excel file. Please try a smaller date range.'
