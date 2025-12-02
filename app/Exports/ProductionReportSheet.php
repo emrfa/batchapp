@@ -44,7 +44,7 @@ class ProductionReportSheet implements FromView, WithTitle, ShouldAutoSize, With
     public function styles(Worksheet $sheet)
     {
         // Freeze the first rows (title + headers)
-        $sheet->freezePane('A5');
+        $sheet->freezePane('A6');
 
         // Style title rows (bold, centered)
         $sheet->getStyle('A1:Z3')->applyFromArray([

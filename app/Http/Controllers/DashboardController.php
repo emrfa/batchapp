@@ -45,7 +45,7 @@ class DashboardController extends Controller
             'avgCycleTime' => $data['averageCycleTime'] ?? 0,
             'totalVolumeTons' => $data['totalVolume'] ?? 0,
             'mixers' => $this->getMockMixers($data['activeMixers'] ?? 0),
-            'silos' => $this->mapSilos($data['inventoryLevels'] ?? []),
+            'silos' => $data['inventoryLevels'] ?? [],
             'chart' => $this->mapChart($data['materialConsumptions'] ?? [])
         ]);
     }
@@ -60,23 +60,6 @@ class DashboardController extends Controller
         ];
 
         return $mixers;
-    }
-
-    private function mapSilos($inventoryLevels)
-    {
-        return collect($inventoryLevels)->map(function ($item, $index) {
-            $capacity = 100000;
-            $percent = ($item['stock'] / $capacity) * 100;
-            return [
-                'id' => $index + 1,
-                'name' => $item['name'],
-                'material' => $item['name'],
-                'unit' => 'kg',
-                'percent' => round($percent, 1),
-                'capacity' => $capacity,
-                'current_quantity' => $item['stock']
-            ];
-        })->toArray();
     }
 
     private function mapChart($materialConsumptions)
@@ -118,8 +101,21 @@ class DashboardController extends Controller
             'totalVolumeTons' => 4500,
             'mixers' => $this->getMockMixers(2),
             'silos' => [
-                ['id' => 1, 'name' => 'Silo 1', 'material' => 'Semen', 'unit' => 'kg', 'percent' => 75, 'capacity' => 100000, 'current_quantity' => 75000],
-                ['id' => 2, 'name' => 'Silo 2', 'material' => 'Pasir', 'unit' => 'pulsa', 'percent' => 45, 'capacity' => 80000, 'current_quantity' => 36000],
+                [
+                    "name" => "Semen - Silo 1",
+                    "usage" => 108559,
+                    "stock" => 616156.25
+                ],
+                [
+                    "name" => "Semen - Silo 2",
+                    "usage" => 36384,
+                    "stock" => 500500
+                ],
+                [
+                    "name" => "Semen - Silo 3",
+                    "usage" => 36384,
+                    "stock" => 400524
+                ]
             ],
             'chart' => [
                 'labels' => ['Semen', 'Pasir', 'Pigmen', 'Air'],

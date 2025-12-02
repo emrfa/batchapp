@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ReceivingController;
 use Carbon\Carbon;
 
 /*
@@ -25,47 +26,12 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
 
 // Receiving Logs
-Route::get('/receiving/recent', function () {
-    return response()->json([
-        [
-            'id' => 1,
-            'time' => now()->subHours(2)->toIso8601String(),
-            'silo' => 'Silo 1 (Semen)',
-            'supplier' => 'Holcim Indonesia',
-            'ticket' => 'DO-2218',
-            'qty' => 25000
-        ],
-        [
-            'id' => 2,
-            'time' => now()->subHours(5)->toIso8601String(),
-            'silo' => 'Silo 1A (Semen)',
-            'supplier' => 'Local Quarry A',
-            'ticket' => 'T-9921',
-            'qty' => 12500
-        ],
-        [
-            'id' => 3,
-            'time' => now()->subDay()->setHour(14)->setMinute(30)->toIso8601String(),
-            'silo' => 'Silo 2 (Semen)',
-            'supplier' => 'Semen Padang',
-            'ticket' => 'DO-1102',
-            'qty' => 8000
-        ],
-        [
-            'id' => 4,
-            'time' => now()->subDays(2)->setHour(9)->setMinute(15)->toIso8601String(),
-            'silo' => 'Silo 2A (Semen)',
-            'supplier' => 'StoneGroup',
-            'ticket' => 'SG-881',
-            'qty' => 22000
-        ]
-    ]);
-});
+Route::get('/receiving/recent', [ReceivingController::class, 'getTransactions']);
+Route::get('/receiving/storage-list', [ReceivingController::class, 'getStorageList']);
+
 
 // Submit Receiving
-Route::post('/receiving/submit', function () {
-    return response()->json(['success' => true, 'message' => 'Stock received successfully']);
-});
+Route::post('/receiving/submit', [ReceivingController::class, 'submitTransaction']);
 
 // Production Logs
 Route::get('/logs', function () {

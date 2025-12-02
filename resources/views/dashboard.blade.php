@@ -158,30 +158,30 @@
                     </div>
                     
                     <div class="space-y-8">
-                        <template x-for="silo in stats.silos" :key="silo.id">
-                        <div class="group">
+                        <template x-for="(silo, index) in stats.silos" :key="index">
+                        <div class="group" x-data="{ percent: (silo.stock / 700000) * 100 }">
                             <div class="flex justify-between items-end mb-2">
                                 <div>
                                     <span class="block text-sm font-bold text-gray-900" x-text="silo.name"></span>
-                                    <span class="text-xs text-gray-500" x-text="silo.material"></span>
+                                    <!-- Material name is included in silo name -->
                                 </div>
                                 <div class="text-right">
                                     <span class="block text-sm font-bold text-gray-900">
-                                        <span x-text="Number(silo.current_quantity).toLocaleString()"></span> <span x-text="silo.unit"></span>
+                                        <span x-text="Number(silo.stock).toLocaleString()"></span> <span class="text-gray-500">kg</span>
                                     </span>
-                                    <span class="text-xs text-gray-500" x-text="silo.percent + '% Full'"></span>
+                                    <span class="text-xs text-gray-500" x-text="Math.round(percent) + '% Full'"></span>
                                 </div>
                             </div>
                             
                             <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
                                 <div class="h-full rounded-full transition-all duration-1000 ease-out relative" 
-                                     :class="silo.percent < 20 ? 'bg-red-500' : (silo.percent < 50 ? 'bg-amber-400' : 'bg-emerald-500')"
-                                     :style="`width: ${silo.percent}%;`">
+                                     :class="percent < 20 ? 'bg-red-500' : (percent < 50 ? 'bg-amber-400' : 'bg-emerald-500')"
+                                     :style="`width: ${percent}%;`">
                                      <div class="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite]"></div>
                                 </div>
                             </div>
                             
-                            <template x-if="silo.percent < 20">
+                            <template x-if="percent < 20">
                                 <div class="flex items-center gap-1.5 mt-2 text-red-600 bg-red-50 px-3 py-1.5 rounded-md inline-flex">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
                                     <span class="text-xs font-bold">Low Level Warning</span>

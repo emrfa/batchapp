@@ -59,4 +59,55 @@ class BatchMonitoringApiService
             return null;
         }
     }
+
+    public function getReceivingTransactions()
+    {
+        try {
+            $response = Http::get("{$this->baseUrl}/api/v1/inventory/transaction-history");
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            Log::error('BatchMonitoring API Error (Receiving): ' . $response->status() . ' - ' . $response->body());
+            return null;
+        } catch (\Exception $e) {
+            Log::error('BatchMonitoring API Exception (Receiving): ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    public function getStorageList()
+    {
+        try {
+            $response = Http::get("{$this->baseUrl}/api/v1/inventory/storage-list");
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            Log::error('BatchMonitoring API Error (Storage List): ' . $response->status() . ' - ' . $response->body());
+            return null;
+        } catch (\Exception $e) {
+            Log::error('BatchMonitoring API Exception (Storage List): ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    public function submitReceivingTransaction($data)
+    {
+        try {
+            $response = Http::post("{$this->baseUrl}/api/v1/inventory/transaction", $data);
+
+            if ($response->successful()) {
+                return $response->json();
+            }
+
+            Log::error('BatchMonitoring API Error (Submit Transaction): ' . $response->status() . ' - ' . $response->body());
+            return null;
+        } catch (\Exception $e) {
+            Log::error('BatchMonitoring API Exception (Submit Transaction): ' . $e->getMessage());
+            return null;
+        }
+    }
 }
